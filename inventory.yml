@@ -1,0 +1,18 @@
+---
+all:
+  hosts:
+    main:
+      ansible_host: 192.168.0.22
+  children:
+    raspberry_pi:
+      hosts:
+        main: {}
+    k3s_coordinator:
+      hosts:
+        main: {}
+    monitoring_server:
+      hosts:
+        main: {}
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    remote_user: ubuntu

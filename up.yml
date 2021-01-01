@@ -1,0 +1,17 @@
+---
+- hosts: raspberry_pi
+  user: ubuntu
+  become: yes
+  become_user: root
+  become_method: sudo
+  roles:
+    - rpi_exporter
+    - node_exporter
+
+- hosts: monitoring_server 
+  user: ubuntu
+  become: yes
+  become_user: root
+  become_method: sudo
+  roles:
+    - monitoring_server 
