@@ -3,13 +3,13 @@ all:
   hosts:
     main:
       ansible_host: 192.168.0.22
+    minion1:
+      ansible_host: 192.168.0.33
   children:
     raspberry_pi:
       hosts:
         main: {}
-    k3s_coordinator:
-      hosts:
-        main: {}
+        minion1: {}
     monitoring_server:
       hosts:
         main: {}
