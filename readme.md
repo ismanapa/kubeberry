@@ -142,3 +142,62 @@ El comando es el siguiente:
 ```
 ansible-playbook up.yml -i inventory.yml
 ```
+
+Después de instalar el software es posible acceder al panel de Prometheus para consultar los datos que se están generando con las métricas de los nodos. Esto es posible gracias también al `rpi exporter`.
+
+Si accedemos al dashboard de `http://192.168.0.22:9090/graph` podemos ver distintas métricas como la temperatura de la CPU (rpi_cpu_temperature_celsius).
+
+![RPI temperature](./rpi_temperatura.PNG)
+
+Con los datos que exporta Prometheus podemos generar un dashboard en grafana para consultar las estadísticas. Para crear el dashboard tenemos que añadir el data source de grafana y podemos hacer un dashboard a partir del json del fichero `grafana-dashboard.json`;
+
+## Instalando k3s
+
+Para la instalación de kubernetes vamos a usar k3s que es una distribución hecha por Rancher Labs que es muy ligera y diseñada para dispositivos que no tienen mucha potencia. Para la instalación vamos a usar `k3sup`, una herramienta que permite realizar la instalación muy fácilmente.
+
+### Antes de instalar
+
+Vamos a repasar algunos de los componentes que tiene un cluster y para que sirven. k3s nos incluye algunos de estos componentes ya por defecto pero otros vamos a instalarlos a parte.
+
+#### Load Balancer
+Es el componente encargador de resolver los servicios de tipo Load Balancer. En resumen, se encarga de resolver la IP a través de la que el nodo se va a comunicar con estos servicios. 
+
+En AKS tenemos un componente que lo que hace es que crea un recurso de tipo IP fija y asocia la dirección IP a este servicio.
+
+En nuestro caso vamos a usar el servicio que viene por defecto en k3s que lo que hace es publicar la IP del nodo. ESte servivicio es [Klipper lb](https://github.com/k3s-io/klipper-lb)
+
+#### Ingress controller
+El ingress controller es el servicio que se encarga de procesar los recursos de tipo `ingress`, que en resumen son reglas de enrutamiento para el cluster.
+
+Por defecto k3s viene con Traefik como ingress controller pero nosotros no lo vamos a instalar y vamos a usar el nginx ingress controller.
+
+#### Cert manager
+Otro de los servicios que puede tener un cluster es un cert-manager. Este servicio se encarga de la emisión automática de certificados LTS para que podamos tener conexiones seguras. Nosotros vamos a usar el cert-manager de lets encrypt que nos va a generar certificados gratis de forma automática. Para esto vamos a tener que resolver otros problemas pero lo veremos más adelante.
+
+#### Storage provider
+Cuando queremos tener persistencia de disco duro tenemos que tener un storage provider. k3s viene por defecto con `local-path` que se encarga de mapear un directorio local con un `persistent volume claim`. 
+
+Se puede configurar para mapear el path que queremos que se use pero hay que tener en cuenta que si tenemos diversos nodos se nos complica la cosa ya que los datos puedes estar en un nodo u otro. 
+
+Para sincronizar el storage entre nodos se puede usar otros providers como `longhorn`, pero yo no lo he usado. En mi caso me da un poco igual poque las aplicaciones que uso no usan storage.
+
+### Instalación
+Para realizar la instalación debemos de añadir k3s al nodo principal y luego añadir el resto de nodos como minions del nodo principal.
+
+Para la instalación del nodo master lanzamos el siguiente comando (vamos a deshabilitar la instalación de traefik porque luego instalaremos el nginx ingress controller)
+
+```
+k3sup install --ip 192.168.0.22 --user ubuntu --k3s-extra-args '--no-deploy traefik'
+```
+
+Despues de la instalación se genera un fichero `kubeconfig` en el que tenemos los datos para acceder al cluster a través de kubectl. Existe varias formas para usar este fichero desde kubectl como añadir el fichero a la variable de entorno `KUBECONFIG` o usando una herramienta específica para esto como [konfig](https://github.com/corneliusweig/konfig). También podemos poner la configuración dentro del fichero de config situado en `$HOME/.kube/config`. 
+
+Si perdemos el fichero también lo podemos sacar del nodo main en `/etc/rancher/k3s/k3s.yaml`.
+
+Para unir los otros nodos debemos de lanzar el siguiente comando para cada uno de ellos.
+
+```
+k3sup join --ip 192.168.0.33 --server-ip 192.168.0.22 --user ubuntu --k3s-extra-args '--node-name minion1'
+```
+
+Es importante que todos los nodos no tengan el mismo nombre para no tener errores en el startup.
