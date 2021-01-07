@@ -200,4 +200,4 @@ Para unir los otros nodos debemos de lanzar el siguiente comando para cada uno d
 k3sup join --ip 192.168.0.33 --server-ip 192.168.0.22 --user ubuntu --k3s-extra-args '--node-name minion1'
 ```
 
-Es importante que todos los nodos no tengan el mismo nombre para no tener errores en el startup.
+Es importante que todos los nodos no tengan el mismo nombre para no tener errores en el startup
