@@ -181,7 +181,7 @@ Se puede configurar para mapear el path que queremos que se use pero hay que ten
 
 Para sincronizar el storage entre nodos se puede usar otros providers como `longhorn`, pero yo no lo he usado. En mi caso me da un poco igual poque las aplicaciones que uso no usan storage.
 
-### Instalación
+### Instalación k3s
 Para realizar la instalación debemos de añadir k3s al nodo principal y luego añadir el resto de nodos como minions del nodo principal.
 
 Para la instalación del nodo master lanzamos el siguiente comando (vamos a deshabilitar la instalación de traefik porque luego instalaremos el nginx ingress controller)
@@ -200,4 +200,54 @@ Para unir los otros nodos debemos de lanzar el siguiente comando para cada uno d
 k3sup join --ip 192.168.0.33 --server-ip 192.168.0.22 --user ubuntu --k3s-extra-args '--node-name minion1'
 ```
 
-Es importante que todos los nodos no tengan el mismo nombre para no tener errores en el startup
+Es importante que todos los nodos no tengan el mismo nombre para no tener errores en el startup.
+
+### Instalar servicios
+Para instalar los distintos servicios vamos a usar helm. Los servicios que vamos a instalar son:
+
+#### lets encrypt
+
+[Guía de instalación](https://cert-manager.io/docs/installation/kubernetes/)
+
+```
+kubectl create namespace cert-manager
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+helm install cert-manager jetstack/cert-manager --namespace cert-manager --version v1.1.0  --set installCRDs=true
+```
+
+A parte de instalar el cert-manager tenemos que instalar un `ClusterIssuer` que será el encargado de emitir los certificados cuando se hagan las peticiones de certificado.
+
+```
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    # You must replace this email address with your own.
+    # Let's Encrypt will use this to contact you about expiring
+    # certificates, and issues related to your account.
+    email: user@example.com
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      # Secret resource that will be used to store the account's private key.
+      name: example-issuer-account-key
+    # Add a single challenge solver, HTTP01 using nginx
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+```
+
+#### nginx ingress controller
+
+Para encargarse de la gestión de las rutas ingress vamos a instalar el nginx ingress controller
+
+```
+kubectl create namespace nginx-ingress
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo update
+
+helm install nginx-ingress ingress-nginx/ingress-nginx --namespace nginx-ingress
+```
